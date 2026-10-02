@@ -1,0 +1,24 @@
+{
+  "stores": [
+    {
+      "id": 1,
+      "name": "人民路店",
+      "code": "store-rml"
+    },
+    {
+      "id": 2,
+      "name": "中山大道店",
+      "code": "store-zsd"
+    },
+    {
+      "id": 3,
+      "name": "高新区店",
+      "code": "store-gxq"
+    }
+  ],
+  "issues": [],
+  "seq": {
+    "store": 3,
+    "issue": 3
+  }
+}

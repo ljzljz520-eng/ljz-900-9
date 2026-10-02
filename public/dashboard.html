@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>老板汇总 - 连锁药店巡检整改平台</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><h1>📊 老板汇总</h1><p>问题与整改成对图片 · 扣分项 · 完成率</p></header>
+<nav class="tabs">
+  <a href="index.html">🏠 首页</a>
+  <a href="supervisor.html">📋 督导巡检</a>
+  <a href="qr.html">🔳 门店二维码</a>
+  <a href="dashboard.html" class="active">📊 老板汇总</a>
+</nav>
+<div class="container">
+  <div class="stat-grid" id="overall"></div>
+  <div class="card">
+    <h2>按问题区域统计</h2>
+    <div id="catStats" class="cat-grid"></div>
+  </div>
+  <div id="stores"></div>
+</div>
+<div class="toast" id="toast"></div>
+<div id="lightbox" onclick="this.style.display='none'"><img id="lbImg"></div>
+<script>
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);}
+function lb(src){document.getElementById('lbImg').src=src;document.getElementById('lightbox').style.display='flex';}
+async function load(){
+  const d=await(await fetch('/api/summary')).json();
+  const o=d.overall;
+  document.getElementById('overall').innerHTML=`
+    <div class="stat"><div class="num">${d.stores.length}</div><div class="lbl">门店数</div></div>
+    <div class="stat"><div class="num">${o.total}</div><div class="lbl">问题总数</div></div>
+    <div class="stat"><div class="num">${o.done}</div><div class="lbl">已整改</div></div>
+    <div class="stat"><div class="num">${o.completionRate}%</div><div class="lbl">整体完成率</div></div>
+    <div class="stat"><div class="num" style="color:#dc2626">-${o.deducted}</div><div class="lbl">累计扣分</div></div>`;
+  document.getElementById('catStats').innerHTML = o.byCategory.map(c=>`
+    <div class="cat-stat">
+      <div class="cat-name">${c.category}</div>
+      <div class="cat-num">${c.done}<small>/${c.total}</small></div>
+      <div class="progress"><div style="width:${c.completionRate}%"></div></div>
+      <div class="cat-rate">${c.completionRate}%</div>
+    </div>`).join('');
+  document.getElementById('stores').innerHTML=d.stores.map(s=>`
+    <div class="card">
+      <div class="issue-head">
+        <h2 style="margin:0">🏪 ${s.store.name}</h2>
+        <span style="font-size:13px;color:#64748b">完成率 <b style="color:#0e7490">${s.completionRate}%</b>（${s.done}/${s.total}）｜ 扣分 <span class="deduct">-${s.deducted}</span></span>
+      </div>
+      <div class="progress"><div style="width:${s.completionRate}%"></div></div>
+      ${s.issues.map(i=>`
+        <div class="card" style="margin:12px 0 0;padding:12px;background:#fbfdfe">
+          <div class="issue-head">
+            <span class="issue-code">${i.code}</span>
+            <span><span class="badge cat">${i.category}</span> <span class="badge ${i.status}">${i.status==='done'?'已整改':'待整改'}</span></span>
+          </div>
+          <div class="issue-meta">扣分项：<span class="deduct">-${i.deductPoints} 分</span> ｜ 上报 ${i.createdAt.slice(0,16).replace('T',' ')}${i.rectifiedAt?' ｜ 整改 '+i.rectifiedAt.slice(0,16).replace('T',' '):''}<br>${i.description||''}</div>
+          <div class="pair">
+            <figure><img src="/${i.problemImage}" onclick="lb(this.src)"><figcaption>❌ 问题照片</figcaption></figure>
+            <figure>${i.rectifyImage?`<img src="/${i.rectifyImage}" onclick="lb(this.src)">`:'<div class="empty">待整改</div>'}<figcaption>✅ 整改照片</figcaption></figure>
+          </div>
+          <div style="text-align:right;margin-top:8px"><button class="danger" style="padding:4px 12px;font-size:12px" onclick="del(${i.id},'${i.code}')">删除</button></div>
+        </div>`).join('')||'<div class="empty-tip">本店暂无问题记录</div>'}
+    </div>`).join('');
+}
+async function del(id,code){
+  if(!confirm(`删除 ${code}？删除后编号将自动重排保持连续。`)) return;
+  await fetch('/api/issues/'+id,{method:'DELETE'});
+  toast('已删除，编号已重排'); load();
+}
+load();
+</script>
+</body>
+</html>

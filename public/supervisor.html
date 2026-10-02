@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>督导巡检 - 连锁药店巡检整改平台</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><h1>📋 督导巡检</h1><p>按门店上传药品陈列、冷藏柜、处方区问题照片</p></header>
+<nav class="tabs">
+  <a href="index.html">🏠 首页</a>
+  <a href="supervisor.html" class="active">📋 督导巡检</a>
+  <a href="qr.html">🔳 门店二维码</a>
+  <a href="dashboard.html">📊 老板汇总</a>
+</nav>
+<div class="container">
+  <div class="card">
+    <h2>上报问题</h2>
+    <form id="form">
+      <label>门店</label>
+      <select id="storeId" required></select>
+      <label>问题区域</label>
+      <select id="category">
+        <option>药品陈列</option>
+        <option>冷藏柜</option>
+        <option>处方区</option>
+      </select>
+      <label>扣分（0-100）</label>
+      <input type="number" id="deductPoints" min="0" max="100" value="2" required>
+      <label>问题描述</label>
+      <textarea id="description" placeholder="如：冷藏柜温度记录缺失 / 处方药开架销售…"></textarea>
+      <label>问题照片</label>
+      <div class="file-picker" id="picker">📷 点击拍摄 / 选择问题图片<img id="preview" style="display:none"></div>
+      <input type="file" id="image" accept="image/*" capture="environment" style="display:none">
+      <button type="submit" class="block">提交问题</button>
+    </form>
+  </div>
+  <div class="card">
+    <h2>已上报问题（编号连续）</h2>
+    <div class="row" style="margin-bottom:10px">
+      <select id="filterStore" style="flex:1"><option value="">全部门店</option></select>
+      <select id="filterStatus" style="flex:1">
+        <option value="">全部状态</option><option value="pending">待整改</option><option value="done">已整改</option>
+      </select>
+    </div>
+    <div id="list"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<div id="lightbox" onclick="this.style.display='none'"><img id="lbImg"></div>
+<script>
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);}
+const picker=document.getElementById('picker'),fileInput=document.getElementById('image'),preview=document.getElementById('preview');
+picker.onclick=()=>fileInput.click();
+fileInput.onchange=()=>{ if(fileInput.files[0]){ preview.src=URL.createObjectURL(fileInput.files[0]); preview.style.display='block'; picker.classList.add('has-file'); picker.childNodes[0].textContent='✅ 已选择，点击可更换 '; } };
+async function loadStores(){
+  const stores=await(await fetch('/api/stores')).json();
+  const opts=stores.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  document.getElementById('storeId').innerHTML=opts;
+  document.getElementById('filterStore').innerHTML='<option value="">全部门店</option>'+opts;
+}
+document.getElementById('form').onsubmit=async e=>{
+  e.preventDefault();
+  if(!fileInput.files[0]) return toast('请选择问题照片');
+  const fd=new FormData();
+  fd.append('storeId',document.getElementById('storeId').value);
+  fd.append('category',document.getElementById('category').value);
+  fd.append('deductPoints',document.getElementById('deductPoints').value);
+  fd.append('description',document.getElementById('description').value);
+  fd.append('image',fileInput.files[0]);
+  const r=await fetch('/api/issues',{method:'POST',body:fd});
+  const d=await r.json();
+  if(!r.ok) return toast(d.error);
+  toast('✅ 问题已上报');
+  document.getElementById('description').value=''; fileInput.value=''; preview.style.display='none';
+  picker.classList.remove('has-file'); picker.childNodes[0].textContent='📷 点击拍摄 / 选择问题图片';
+  loadList();
+};
+async function loadList(){
+  const sid=document.getElementById('filterStore').value, st=document.getElementById('filterStatus').value;
+  const q=new URLSearchParams(); if(sid)q.set('storeId',sid); if(st)q.set('status',st);
+  const list=await(await fetch('/api/issues?'+q)).json();
+  const stores=await(await fetch('/api/stores')).json();
+  const name=id=>(stores.find(s=>s.id===id)||{}).name||'?';
+  document.getElementById('list').innerHTML=list.map(i=>`
+    <div class="card" style="margin-bottom:10px;padding:12px">
+      <div class="issue-head">
+        <span class="issue-code">${i.code}</span>
+        <span><span class="badge cat">${i.category}</span> <span class="badge ${i.status}">${i.status==='done'?'已整改':'待整改'}</span></span>
+      </div>
+      <div class="issue-meta">🏪 ${name(i.storeId)} ｜ 扣分 <span class="deduct">-${i.deductPoints}</span> ｜ ${i.createdAt.slice(0,16).replace('T',' ')}<br>${i.description||''}</div>
+      <div class="pair">
+        <figure><img src="/${i.problemImage}" onclick="lb(this.src)"><figcaption>问题照片</figcaption></figure>
+        <figure>${i.rectifyImage?`<img src="/${i.rectifyImage}" onclick="lb(this.src)">`:'<div class="empty">待整改</div>'}<figcaption>整改照片</figcaption></figure>
+      </div>
+      <div style="text-align:right;margin-top:8px"><button class="danger" style="padding:4px 12px;font-size:12px" onclick="del(${i.id},'${i.code}')">删除</button></div>
+    </div>`).join('')||'<div class="empty-tip">暂无问题记录</div>';
+}
+async function del(id,code){
+  if(!confirm(`删除 ${code}？删除后编号将自动重排保持连续。`)) return;
+  await fetch('/api/issues/'+id,{method:'DELETE'});
+  toast('已删除，编号已重排'); loadList();
+}
+function lb(src){document.getElementById('lbImg').src=src;document.getElementById('lightbox').style.display='flex';}
+document.getElementById('filterStore').onchange=loadList;
+document.getElementById('filterStatus').onchange=loadList;
+loadStores().then(loadList);
+</script>
+</body>
+</html>

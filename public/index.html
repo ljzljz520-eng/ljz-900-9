@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>连锁药店巡检整改平台</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><h1>💊 连锁药店巡检整改平台</h1><p>督导巡检 · 店员整改 · 老板汇总</p></header>
+<nav class="tabs">
+  <a href="supervisor.html">📋 督导巡检</a>
+  <a href="qr.html">🔳 门店二维码</a>
+  <a href="dashboard.html">📊 老板汇总</a>
+</nav>
+<div class="container">
+  <div class="card">
+    <h2>使用流程</h2>
+    <div class="issue-meta" style="font-size:14px;line-height:2.2">
+      1️⃣ <b>督导</b> 到门店巡检，进入「督导巡检」选择门店，按<b>药品陈列 / 冷藏柜 / 处方区</b>分类上传问题照片并设定扣分。<br>
+      2️⃣ <b>店员</b> 扫描本店专属二维码（「门店二维码」页打印张贴），查看待整改项并上传整改后照片。<br>
+      3️⃣ <b>老板</b> 在「老板汇总」查看各门店问题与整改成对图片、扣分项与完成率。<br>
+      4️⃣ 删除问题后，编号 <b>ZG-001、ZG-002…</b> 自动重排，始终保持连续。
+    </div>
+  </div>
+  <div class="card">
+    <h2>门店管理</h2>
+    <div class="row">
+      <input type="text" id="newStore" placeholder="新门店名称，如：解放路店" style="flex:1">
+      <button onclick="addStore()">添加门店</button>
+    </div>
+    <div id="storeList" style="margin-top:12px"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
+async function loadStores(){
+  const stores = await (await fetch('/api/stores')).json();
+  document.getElementById('storeList').innerHTML = stores.map(s=>`
+    <div class="row" style="justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9">
+      <span>🏪 ${s.name}</span>
+      <button class="danger" style="padding:4px 12px;font-size:12px" onclick="delStore(${s.id},'${s.name}')">删除</button>
+    </div>`).join('') || '<div class="empty-tip">暂无门店</div>';
+}
+async function addStore(){
+  const name = document.getElementById('newStore').value.trim();
+  if(!name) return toast('请输入门店名称');
+  const r = await fetch('/api/stores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+  const d = await r.json();
+  if(!r.ok) return toast(d.error);
+  document.getElementById('newStore').value=''; toast('已添加'); loadStores();
+}
+async function delStore(id,name){
+  if(!confirm(`删除「${name}」将同时删除其全部问题与图片，确定？`)) return;
+  await fetch('/api/stores/'+id,{method:'DELETE'});
+  toast('已删除'); loadStores();
+}
+loadStores();
+</script>
+</body>
+</html>

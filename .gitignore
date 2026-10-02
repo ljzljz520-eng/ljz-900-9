@@ -23,3 +23,6 @@ __pycache__/
 *.log
 .env
 .env.*
+
+# 用户上传图片（运行时生成）
+uploads/

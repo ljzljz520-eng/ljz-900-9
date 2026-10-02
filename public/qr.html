@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>门店二维码 - 连锁药店巡检整改平台</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><h1>🔳 门店整改二维码</h1><p>打印张贴到门店，店员扫码上传整改照片</p></header>
+<nav class="tabs">
+  <a href="index.html">🏠 首页</a>
+  <a href="supervisor.html">📋 督导巡检</a>
+  <a href="qr.html" class="active">🔳 门店二维码</a>
+  <a href="dashboard.html">📊 老板汇总</a>
+</nav>
+<div class="container">
+  <div class="card">
+    <div class="issue-head">
+      <h2 style="margin:0">各门店整改入口</h2>
+      <button class="no-print" onclick="window.print()">🖨️ 打印张贴</button>
+    </div>
+    <div class="qr-grid" id="grid" style="margin-top:12px"></div>
+  </div>
+</div>
+<script>
+async function load(){
+  const stores=await(await fetch('/api/stores')).json();
+  document.getElementById('grid').innerHTML=stores.map(s=>`
+    <div class="qr-item">
+      <img src="/api/stores/${s.id}/qrcode" alt="${s.name}">
+      <div style="font-weight:600;margin-top:8px">🏪 ${s.name}</div>
+      <div style="font-size:12px;color:#64748b;margin-top:2px">微信/浏览器扫码上传整改照片</div>
+      <a class="btn no-print" style="margin-top:8px;font-size:12px;padding:6px 14px" href="/api/stores/${s.id}/qrcode" download="${s.name}-整改二维码.png">下载二维码</a>
+    </div>`).join('')||'<div class="empty-tip">请先在首页添加门店</div>';
+}
+load();
+</script>
+</body>
+</html>
